@@ -7,38 +7,35 @@
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #34C759; --bg: #000; --card: #1c1c1e; --accent: #3b82f6; --danger: #ef4444; }
+        :root { --primary: #34C759; --bg: #000; --card: #1c1c1e; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; height: 100vh; }
-        .hidden { display: none !important; }
-
+        
+        /* 共通：オーバーレイ */
+        #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; flex-direction: column; }
+        
+        /* 投票画面スタイル */
         #vote-view { display: flex; height: 100vh; }
         .left-panel { width: 40%; display: flex; flex-direction: column; padding: 20px; border-right: 1px solid #333; box-sizing: border-box; }
-        
-        /* ビデオコンテナ（切替ボタンを配置するため relative） */
         #video-container { width: 100%; aspect-ratio: 4/3; background: #333; border-radius: 16px; overflow: hidden; border: 2px solid #444; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* カメラ切替ボタンのデザイン */
         #cam-switch { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); border: 1px solid #fff; color: #fff; padding: 5px 10px; border-radius: 8px; font-size: 0.7rem; cursor: pointer; z-index: 10; }
-
         #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; text-align: center; color: #aaa; min-height: 3em; white-space: pre-wrap; }
-
         .right-panel { width: 60%; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(5, 1fr); gap: 8px; box-sizing: border-box; }
-        .club-btn { background: #2c2c2e; border: 1px solid #444; border-radius: 12px; color: #fff; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: 0.1s; }
+        .club-btn { background: #2c2c2e; border: 1px solid #444; border-radius: 12px; color: #fff; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
         .club-btn:active { background: var(--primary); transform: scale(0.95); }
         .club-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        #admin-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 2000; padding: 30px; box-sizing: border-box; overflow-y: auto; }
-        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-        .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
-        
-        #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; flex-direction: column; }
-        #admin-trigger { position: fixed; bottom: 0; left: 0; width: 50px; height: 50px; opacity: 0; z-index: 4000; }
+        /* 管理画面スタイル */
+        #admin-view { display: none; height: 100vh; overflow-y: auto; background: #f4f4f9; color: #333; padding: 20px; box-sizing: border-box; }
+        .admin-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: #eee; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-num { font-size: 1.8rem; font-weight: bold; color: var(--primary); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
     </style>
 </head>
 <body>
-
-<div id="admin-trigger" onclick="handleAdminAuth()"></div>
 
 <div id="overlay">
     <h1 id="res-icon" style="font-size: 6rem; margin:0;">✅</h1>
@@ -47,141 +44,128 @@
 
 <div id="vote-view">
     <div class="left-panel">
-        <h2 style="margin: 0 0 10px 0;">興風祭 総選挙 <small style="font-size: 0.5em; opacity: 0.5;">Full Moon</small></h2>
+        <h2 style="margin:0 0 10px 0;">興風祭 総選挙 <small style="opacity:0.5;">Full Moon</small></h2>
         <div id="video-container">
             <button id="cam-switch" onclick="toggleCamera()">カメラ切替</button>
             <video id="video" autoplay muted playsinline></video>
         </div>
-        <div id="status">AIモデル起動中...</div>
-        <div style="margin-top:auto; font-size:0.75rem; color:#666;">
-            ※正面を向き、目を開けてボタンを押してください。
-        </div>
+        <div id="status">起動中...</div>
     </div>
     <div class="right-panel" id="grid"></div>
 </div>
 
-<div id="admin-view" class="hidden">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h1>管制塔: <span id="layer-label" style="color:var(--accent);">---</span></h1>
-        <button onclick="closeAdmin()" style="background:var(--danger); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold;">閉じる</button>
+<div id="admin-view">
+    <div class="admin-card">
+        <button onclick="location.reload()" style="float:right;">更新</button>
+        <h1 style="margin:0;">学実用 リアルタイム統計</h1>
+        <div class="admin-grid" style="margin-top:20px;">
+            <div class="stat-box"><div>総投票数</div><div id="total-votes" class="stat-num">0</div></div>
+            <div class="stat-box"><div>D1キャッシュ</div><div id="cache-count" class="stat-num">0/100</div></div>
+        </div>
+        <canvas id="voteChart" style="max-height: 300px;"></canvas>
     </div>
-    <div class="admin-grid">
-        <div class="card"><h3>得票ランキング</h3><canvas id="rankingChart"></canvas></div>
-        <div class="card"><h3>システム状況</h3><div id="admin-stats">データ取得中...</div></div>
+    <div class="admin-card">
+        <h3>団体別ランキング</h3>
+        <table id="admin-table">
+            <thead><tr><th>団体名</th><th>得票</th><th>シェア</th></tr></thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 
 <script>
-    const API_URL = "https://kofusai-api.nengjianxingtai44.workers.dev/";
+    const API_URL = "あなたのWorkerのURL";
     const clubs = ["物理研究部", "化学部", "生物部", "地学部", "吹奏楽部", "軽音楽部", "現代文芸", "鉄道研究", "囲碁将棋", "マジック", "クイズ", "工芸部", "美術部", "書道部", "PC班", "レゴ班", "模型班", "無線班", "数学研", "英語研"];
     
-    let isProcessing = false;
-    let currentFacingMode = "user"; // "user" は内側, "environment" は外側
-    const video = document.getElementById('video');
-    const status = document.getElementById('status');
-    const grid = document.getElementById('grid');
+    let isProcessing = false, currentFacingMode = "user", chart;
+    const video = document.getElementById('video'), status = document.getElementById('status'), grid = document.getElementById('grid');
 
-    async function initCamera() {
-        if (video.srcObject) {
-            video.srcObject.getTracks().forEach(track => track.stop());
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: currentFacingMode } 
-            });
-            video.srcObject = stream;
-        } catch (e) {
-            status.innerText = "カメラ起動エラー: " + e.message;
-        }
-    }
-
-    async function toggleCamera() {
-        currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
-        await initCamera();
-    }
+    // モード判定 (URLに ?admin=true があれば管理画面)
+    const isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
 
     async function init() {
-        status.innerText = "AIモデル読み込み中...";
-        try {
-            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
-            
-            await initCamera();
-            
-            clubs.forEach(name => {
-                const btn = document.createElement('button');
-                btn.className = 'club-btn';
-                btn.innerText = name;
-                btn.onclick = () => processVote(name);
-                grid.appendChild(btn);
-            });
-            status.innerText = "準備完了\n団体を選んでタップ";
-        } catch (e) { status.innerText = "初期化エラー"; }
+        if (isAdmin) {
+            document.getElementById('vote-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'block';
+            document.body.style.overflow = 'auto';
+            loadAdminData();
+            setInterval(loadAdminData, 30000);
+            return;
+        }
+
+        // 投票画面の初期化
+        status.innerText = "モデル読込中...";
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
+        await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)]);
+        await initCamera();
+        clubs.forEach(name => {
+            const btn = document.createElement('button');
+            btn.className = 'club-btn'; btn.innerText = name;
+            btn.onclick = () => processVote(name);
+            grid.appendChild(btn);
+        });
+        status.innerText = "準備完了\n団体を選んでタップ";
+    }
+
+    async function initCamera() {
+        if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
+        video.srcObject = stream;
     }
 
     async function processVote(clubName) {
         if (isProcessing) return;
         isProcessing = true;
         document.querySelectorAll('.club-btn').forEach(b => b.disabled = true);
+        status.innerText = "顔解析中...";
 
-        status.innerText = "解析中...";
+        const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        if (!det) { status.innerText = "⚠️ 顔が認識できません"; resetUI(); return; }
         
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-
-        if (!detection) {
-            status.innerText = "⚠️ 顔が認識できません";
-            resetUI();
-            return;
-        }
-
-        const landmarks = detection.landmarks;
-        if (landmarks.getMouth().length < 20 || landmarks.getNose().length < 9) {
-            status.innerText = "⚠️ 顔の一部が隠れています";
-            resetUI();
-            return;
-        }
-
         try {
             const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ descriptor: Array.from(detection.descriptor), voteTo: clubName })
+                body: JSON.stringify({ descriptor: Array.from(det.descriptor), voteTo: clubName })
             });
             const data = await res.json();
             showOverlay(res.ok, data.message);
         } catch (e) { showOverlay(false, "通信エラー"); }
-        
         setTimeout(resetUI, 3000);
     }
 
-    function resetUI() {
-        isProcessing = false;
-        document.querySelectorAll('.club-btn').forEach(b => b.disabled = false);
-        status.innerText = "団体を選んでタップ";
+    async function loadAdminData() {
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json(); // Worker側のGETを votes と cacheCount のオブジェクト返却に修正済みの想定
+            const votes = data.votes || [];
+            
+            document.getElementById('total-votes').innerText = votes.reduce((s, v) => s + v.value, 0);
+            document.getElementById('cache-count').innerText = `${data.cacheCount || 0} / 100`;
+
+            const tbody = document.querySelector('#admin-table tbody');
+            tbody.innerHTML = votes.map(v => `<tr><td>${v.label}</td><td>${v.value}</td><td>${((v.value / (votes.reduce((s,x)=>s+x.value,0) || 1))*100).toFixed(1)}%</td></tr>`).join('');
+
+            const ctx = document.getElementById('voteChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: votes.map(v=>v.label), datasets: [{ label:'得票', data:votes.map(v=>v.value), backgroundColor:'#34C759' }] },
+                options: { responsive: true }
+            });
+        } catch (e) { console.error(e); }
     }
 
+    function resetUI() { isProcessing = false; document.querySelectorAll('.club-btn').forEach(b => b.disabled = false); status.innerText = "団体を選んでタップ"; }
     function showOverlay(ok, msg) {
         const ov = document.getElementById('overlay');
         document.getElementById('res-icon').innerText = ok ? "✅" : "⚠️";
-        document.getElementById('res-text').innerText = ok ? "投票完了！" : msg;
+        document.getElementById('res-text').innerText = ok ? "完了！" : msg;
         ov.style.display = 'flex';
         setTimeout(() => { ov.style.display = 'none'; }, 3000);
     }
-
-    function handleAdminAuth() {
-        const pw = prompt("Password?");
-        if (pw === "kofusai-master" || pw === "kofusai-view") {
-            document.getElementById('admin-view').classList.remove('hidden');
-            document.getElementById('layer-label').innerText = pw.includes("master") ? "学実マスター" : "閲覧用";
-        }
-    }
-
-    function closeAdmin() { document.getElementById('admin-view').classList.add('hidden'); }
-
+    async function toggleCamera() { currentFacingMode = (currentFacingMode === "user") ? "environment" : "user"; await initCamera(); }
+    
     init();
 </script>
 </body>
